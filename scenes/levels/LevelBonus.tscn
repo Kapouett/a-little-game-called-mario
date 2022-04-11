@@ -1,0 +1,359 @@
+[gd_scene load_steps=30 format=2]
+
+[ext_resource path="res://scenes/levels/TileSet.tres" type="TileSet" id=1]
+[ext_resource path="res://sprites/kart.png" type="Texture" id=2]
+[ext_resource path="res://sprites/bg-tile.png" type="Texture" id=3]
+[ext_resource path="res://sprites/tile.png" type="Texture" id=4]
+[ext_resource path="res://fonts/ALittleNameCalle.ttf" type="DynamicFontData" id=5]
+
+[sub_resource type="GDScript" id=26]
+script/source = "extends Area2D
+
+export(NodePath) var world_3d_path
+onready var world_3d = get_node(world_3d_path)
+
+func _on_Area2D_body_entered(body):
+	world_3d.start()
+	queue_free()
+"
+
+[sub_resource type="RectangleShape2D" id=25]
+extents = Vector2( 255.5, 345 )
+
+[sub_resource type="AtlasTexture" id=24]
+flags = 16
+atlas = ExtResource( 2 )
+region = Rect2( 0, 0, 32, 32 )
+
+[sub_resource type="GDScript" id=13]
+script/source = "extends Spatial
+
+export(NodePath) var viewport_container_path
+onready var viewport_container: ViewportContainer = get_node(viewport_container_path)
+export(NodePath) var score_label_path
+onready var score_label: Label = get_node(score_label_path)
+
+var score: int = 0
+var score_inc: float = 0.0
+
+var speed: float = 0.0
+const MAX_SPEED: float = 20.0
+
+const GROUND_RADIUS: float = 10.0
+
+# TODO: Implement these
+var obstacles: Dictionary = {}
+var side_obstacles: Dictionary = {}
+
+func _ready() -> void:
+	viewport_container.visible = false
+	score_label.visible = false
+
+# Starts the minigame
+func start() -> void:
+	viewport_container.visible = true
+	score_label.visible = true
+	
+	score = 0
+	speed = 0.5
+	$Kart.translation.x = 0.0
+
+func _process(delta: float) -> void:
+	# Speed up
+	speed = min(speed + delta * 0.1, MAX_SPEED)
+	
+	# Get one point per second
+	score_inc += delta
+	while score_inc >= 1.0:
+		score_inc -= 1.0
+		score += 1
+"
+
+[sub_resource type="AtlasTexture" id=1]
+flags = 16
+atlas = ExtResource( 2 )
+region = Rect2( 44, 1, 39, 31 )
+
+[sub_resource type="GDScript" id=15]
+script/source = "extends Sprite3D
+
+const MAX_LAT_SPEED: float = 2.0
+const MAX_LAT_POS: float = 1.0
+
+var lat_velocity: float = 0.0
+
+var engine_shake_clock: float = 0.0
+
+
+func _physics_process(delta: float) -> void:
+	var input = Input.get_action_strength(\"right\") - Input.get_action_strength(\"left\")
+	
+	lat_velocity = lerp(lat_velocity, input * MAX_LAT_SPEED, 4.0 * delta)
+	
+	translation.x = clamp( translation.x + lat_velocity * delta, -MAX_LAT_POS, MAX_LAT_POS )
+	
+func _process(delta: float) -> void:
+	# Small engine vibration animation
+	engine_shake_clock = fmod(engine_shake_clock + delta * 60.0, TAU)
+	translation.y = sin(engine_shake_clock) * 0.0025
+"
+
+[sub_resource type="CylinderMesh" id=16]
+top_radius = 10.0
+bottom_radius = 10.0
+height = 64.0
+radial_segments = 128
+rings = 0
+
+[sub_resource type="VisualShaderNodeVectorDecompose" id=11]
+
+[sub_resource type="VisualShaderNodeVec3Uniform" id=20]
+uniform_name = "TextureScaling"
+
+[sub_resource type="VisualShaderNodeTextureUniform" id=3]
+uniform_name = "Texture"
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeInput" id=7]
+input_name = "uv"
+
+[sub_resource type="VisualShaderNodeVectorOp" id=8]
+default_input_values = [ 0, Vector3( 0, 0, 0 ), 1, Vector3( 32, 64, 1 ) ]
+operator = 2
+
+[sub_resource type="VisualShaderNodeVectorFunc" id=10]
+function = 20
+
+[sub_resource type="VisualShaderNodeVectorCompose" id=12]
+
+[sub_resource type="VisualShader" id=21]
+code = "shader_type spatial;
+render_mode specular_disabled, unshaded, shadows_disabled;
+
+uniform vec3 TextureScaling;
+uniform sampler2D Texture : hint_albedo;
+
+
+
+void vertex() {
+// Output:0
+
+}
+
+void fragment() {
+// Input:4
+	vec3 n_out4p0 = vec3(UV, 0.0);
+
+// VectorUniform:11
+	vec3 n_out11p0 = TextureScaling;
+
+// VectorOp:6
+	vec3 n_out6p0 = n_out4p0 * n_out11p0;
+
+// VectorDecompose:10
+	float n_out10p0 = n_out6p0.x;
+	float n_out10p1 = n_out6p0.y;
+	float n_out10p2 = n_out6p0.z;
+
+// VectorCompose:9
+	float n_in9p2 = 0.00000;
+	vec3 n_out9p0 = vec3(n_out10p1, n_out10p0, n_in9p2);
+
+// VectorFunc:8
+	vec3 n_out8p0 = fract(n_out9p0);
+
+// TextureUniform:3
+	vec3 n_out3p0;
+	float n_out3p1;
+	{
+		vec4 n_tex_read = texture(Texture, n_out8p0.xy);
+		n_out3p0 = n_tex_read.rgb;
+		n_out3p1 = n_tex_read.a;
+	}
+
+// Output:0
+	ALBEDO = n_out3p0;
+
+}
+
+void light() {
+// Output:0
+
+}
+"
+graph_offset = Vector2( -1267, 222 )
+modes/specular = 4
+flags/shadows_disabled = true
+flags/unshaded = true
+nodes/fragment/3/node = SubResource( 3 )
+nodes/fragment/3/position = Vector2( 60, 180 )
+nodes/fragment/4/node = SubResource( 7 )
+nodes/fragment/4/position = Vector2( -1020, 260 )
+nodes/fragment/6/node = SubResource( 8 )
+nodes/fragment/6/position = Vector2( -800, 240 )
+nodes/fragment/8/node = SubResource( 10 )
+nodes/fragment/8/position = Vector2( -180, 260 )
+nodes/fragment/9/node = SubResource( 12 )
+nodes/fragment/9/position = Vector2( -380, 260 )
+nodes/fragment/10/node = SubResource( 11 )
+nodes/fragment/10/position = Vector2( -620, 260 )
+nodes/fragment/11/node = SubResource( 20 )
+nodes/fragment/11/position = Vector2( -1040, 360 )
+nodes/fragment/connections = PoolIntArray( 4, 0, 6, 0, 3, 0, 0, 0, 8, 0, 3, 0, 6, 0, 10, 0, 9, 0, 8, 0, 10, 0, 9, 1, 10, 1, 9, 0, 11, 0, 6, 1 )
+
+[sub_resource type="ShaderMaterial" id=18]
+shader = SubResource( 21 )
+shader_param/TextureScaling = Vector3( -32, 64, 0 )
+shader_param/Texture = ExtResource( 4 )
+
+[sub_resource type="GDScript" id=19]
+script/source = "extends MeshInstance
+
+onready var world = get_parent()
+
+func _process(delta: float) -> void:
+	var angular_velocity: float = world.speed / ((world.GROUND_RADIUS * PI) * 0.5)
+	rotation.x = fmod(rotation.x + angular_velocity * delta, TAU)
+"
+
+[sub_resource type="ShaderMaterial" id=5]
+shader = SubResource( 21 )
+shader_param/TextureScaling = Vector3( 32, 64, 0 )
+shader_param/Texture = ExtResource( 3 )
+
+[sub_resource type="CylinderMesh" id=6]
+material = SubResource( 5 )
+flip_faces = true
+top_radius = 5.0
+bottom_radius = 5.0
+height = 30.0
+radial_segments = 32
+rings = 0
+
+[sub_resource type="GDScript" id=14]
+script/source = "extends MeshInstance
+
+onready var parent = get_parent()
+
+func _process(delta: float) -> void:
+	rotation.x += parent.speed * delta * 0.0015
+"
+
+[sub_resource type="CubeMesh" id=27]
+size = Vector3( 0.5, 0.5, 0.5 )
+
+[sub_resource type="GDScript" id=28]
+script/source = "extends MeshInstance
+
+var distance: float = 10.0
+
+func _process(delta: float) -> void:
+	var world = get_parent()
+	
+	distance -= world.speed * delta
+	
+	# Compute object position on the cylinder based on its distance
+	var angle: float = PI * 0.5 + distance / world.GROUND_RADIUS
+	translation.z = cos(angle) * world.GROUND_RADIUS
+	translation.y = sin(angle) * world.GROUND_RADIUS - world.GROUND_RADIUS
+"
+
+[sub_resource type="DynamicFont" id=22]
+size = 50
+font_data = ExtResource( 5 )
+
+[sub_resource type="GDScript" id=23]
+script/source = "extends Label
+
+export(NodePath) var world_path
+onready var world = get_node(world_path)
+
+func _process(_delta: float) -> void:
+	text = str(world.score)
+"
+
+[node name="TileMap" type="TileMap"]
+tile_set = ExtResource( 1 )
+collision_layer = 2
+format = 1
+tile_data = PoolIntArray( -131073, 0, 0, -196608, 0, 0, -196607, 0, 0, -196606, 0, 0, -196605, 0, 0, -196604, 0, 0, -196603, 0, 0, -196602, 0, 0, -196601, 0, 0, -196600, 0, 0, -196599, 0, 0, -196598, 0, 0, -196597, 0, 0, -196596, 0, 0, -196595, 0, 0, -196594, 0, 0, -196593, 0, 0, -196592, 0, 0, -196591, 0, 0, -196590, 0, 0, -65537, 0, 0, -131072, 0, 0, -131071, 0, 0, -131070, 0, 0, -131069, 0, 0, -131068, 0, 0, -131067, 0, 0, -131066, 0, 0, -131065, 0, 0, -131064, 0, 0, -131063, 0, 0, -131062, 0, 0, -131061, 0, 0, -131060, 0, 0, -131059, 0, 0, -131058, 0, 0, -131057, 0, 0, -131056, 0, 0, -131055, 0, 0, -131054, 0, 0, -1, 0, 0, -65536, 0, 0, -65535, 0, 0, -65534, 0, 0, -65533, 0, 0, -65532, 0, 0, -65531, 0, 0, -65530, 0, 0, -65529, 0, 0, -65528, 0, 0, -65527, 0, 0, -65526, 0, 0, -65525, 0, 0, -65524, 0, 0, -65523, 0, 0, -65522, 0, 0, -65521, 0, 0, -65520, 0, 0, -65519, 0, 0, -65518, 0, 0, 65535, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5, 0, 0, 6, 0, 0, 7, 0, 0, 8, 0, 0, 9, 0, 0, 10, 0, 0, 11, 0, 0, 12, 0, 0, 13, 0, 0, 14, 0, 0, 15, 0, 0, 16, 0, 0, 17, 0, 0, 18, 0, 0, 131071, 0, 0, 65536, 0, 0, 65537, 1, 0, 65538, 1, 0, 65539, 1, 0, 65540, 1, 0, 65541, 1, 0, 65542, 1, 0, 65543, 1, 0, 65544, 1, 0, 65545, 1, 0, 65546, 1, 0, 65547, 1, 0, 65548, 1, 0, 65549, 1, 0, 65550, 1, 0, 65551, 1, 0, 65552, 1, 0, 65553, 1, 0, 65554, 0, 0, 196607, 0, 0, 131072, 0, 0, 131073, 1, 0, 131074, 1, 0, 131075, 1, 0, 131076, 1, 0, 131077, 1, 0, 131078, 1, 0, 131079, 1, 0, 131080, 1, 0, 131081, 1, 0, 131082, 1, 0, 131083, 1, 0, 131084, 1, 0, 131085, 1, 0, 131086, 1, 0, 131087, 1, 0, 131088, 1, 0, 131089, 1, 0, 131090, 0, 0, 262143, 0, 0, 196608, 0, 0, 196609, 1, 0, 196610, 1, 0, 196611, 1, 0, 196612, 1, 0, 196613, 1, 0, 196614, 1, 0, 196615, 1, 0, 196616, 1, 0, 196617, 1, 0, 196618, 1, 0, 196619, 1, 0, 196620, 1, 0, 196621, 1, 0, 196622, 1, 0, 196623, 1, 0, 196624, 1, 0, 196625, 1, 0, 196626, 0, 0, 327679, 0, 0, 262144, 0, 0, 262145, 1, 0, 262146, 1, 0, 262147, 1, 0, 262148, 1, 0, 262149, 1, 0, 262150, 1, 0, 262151, 1, 0, 262152, 1, 0, 262153, 1, 0, 262154, 1, 0, 262155, 1, 0, 262156, 1, 0, 262157, 1, 0, 262158, 1, 0, 262159, 1, 0, 262160, 1, 0, 262161, 1, 0, 262162, 0, 0, 393215, 0, 0, 327680, 0, 0, 327681, 1, 0, 327682, 1, 0, 327683, 1, 0, 327684, 1, 0, 327685, 1, 0, 327686, 1, 0, 327687, 1, 0, 327688, 1, 0, 327689, 1, 0, 327690, 1, 0, 327691, 1, 0, 327692, 1, 0, 327693, 1, 0, 327694, 1, 0, 327695, 1, 0, 327696, 1, 0, 327697, 1, 0, 327698, 0, 0, 458751, 0, 0, 393216, 0, 0, 393217, 1, 0, 393218, 1, 0, 393219, 1, 0, 393220, 1, 0, 393221, 1, 0, 393222, 1, 0, 393223, 1, 0, 393224, 1, 0, 393225, 1, 0, 393226, 1, 0, 393227, 1, 0, 393228, 1, 0, 393229, 1, 0, 393230, 1, 0, 393231, 1, 0, 393232, 1, 0, 393233, 1, 0, 393234, 0, 0, 524287, 0, 0, 458752, 0, 0, 458753, 1, 0, 458754, 1, 0, 458755, 1, 0, 458756, 1, 0, 458757, 1, 0, 458758, 1, 0, 458759, 1, 0, 458760, 1, 0, 458761, 1, 0, 458762, 1, 0, 458763, 1, 0, 458764, 1, 0, 458765, 1, 0, 458766, 1, 0, 458767, 1, 0, 458768, 1, 0, 458769, 1, 0, 458770, 0, 0, 589823, 0, 0, 524288, 0, 0, 524289, 0, 0, 524290, 0, 0, 524291, 0, 0, 524292, 0, 0, 524293, 0, 0, 524294, 0, 0, 524295, 0, 0, 524296, 0, 0, 524297, 0, 0, 524298, 0, 0, 524299, 0, 0, 524300, 0, 0, 524301, 0, 0, 524302, 0, 0, 524303, 0, 0, 524304, 0, 0, 524305, 0, 0, 524306, 0, 0, 655359, 0, 0, 589824, 0, 0, 589825, 0, 0, 589826, 0, 0, 589827, 0, 0, 589828, 0, 0, 589829, 0, 0, 589830, 0, 0, 589831, 0, 0, 589832, 0, 0, 589833, 0, 0, 589834, 0, 0, 589835, 0, 0, 589836, 0, 0, 589837, 0, 0, 589838, 0, 0, 589839, 0, 0, 589840, 0, 0, 589841, 0, 0, 589842, 0, 0 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="Area2D" type="Area2D" parent="."]
+position = Vector2( 800, 480 )
+collision_layer = 0
+script = SubResource( 26 )
+world_3d_path = NodePath("../CanvasLayer/ViewportContainer/Viewport/3d world")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+position = Vector2( 226, -174 )
+shape = SubResource( 25 )
+
+[node name="Sprite" type="Sprite" parent="."]
+position = Vector2( 800, 480 )
+scale = Vector2( 2, 2 )
+texture = SubResource( 24 )
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="ViewportContainer" type="ViewportContainer" parent="CanvasLayer"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+stretch = true
+
+[node name="Viewport" type="Viewport" parent="CanvasLayer/ViewportContainer"]
+size = Vector2( 1024, 600 )
+handle_input_locally = false
+render_target_update_mode = 0
+
+[node name="3d world" type="Spatial" parent="CanvasLayer/ViewportContainer/Viewport"]
+script = SubResource( 13 )
+viewport_container_path = NodePath("../..")
+score_label_path = NodePath("../../../ScoreLabel")
+
+[node name="Camera" type="Camera" parent="CanvasLayer/ViewportContainer/Viewport/3d world"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.079, 1.694 )
+current = true
+fov = 65.0
+
+[node name="Kart" type="Sprite3D" parent="CanvasLayer/ViewportContainer/Viewport/3d world"]
+offset = Vector2( 0, 16 )
+pixel_size = 0.02
+texture = SubResource( 1 )
+script = SubResource( 15 )
+
+[node name="Ground" type="MeshInstance" parent="CanvasLayer/ViewportContainer/Viewport/3d world"]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, -10, 0 )
+mesh = SubResource( 16 )
+skeleton = NodePath(".")
+material/0 = SubResource( 18 )
+script = SubResource( 19 )
+
+[node name="Sky" type="MeshInstance" parent="CanvasLayer/ViewportContainer/Viewport/3d world"]
+transform = Transform( -1.31134e-07, -3, 0, 3, -1.31134e-07, 0, 0, 0, 3, 0, -5, 0 )
+mesh = SubResource( 6 )
+skeleton = NodePath("../../../../..")
+material/0 = null
+script = SubResource( 14 )
+
+[node name="TestObject" type="MeshInstance" parent="CanvasLayer/ViewportContainer/Viewport/3d world"]
+mesh = SubResource( 27 )
+material/0 = null
+script = SubResource( 28 )
+
+[node name="ScoreLabel" type="Label" parent="CanvasLayer"]
+visible = false
+margin_left = 21.0
+margin_top = 19.0
+margin_right = 277.0
+margin_bottom = 64.0
+rect_rotation = 2.0
+custom_fonts/font = SubResource( 22 )
+text = "SCORE"
+script = SubResource( 23 )
+world_path = NodePath("../ViewportContainer/Viewport/3d world")
+
+[connection signal="body_entered" from="Area2D" to="Area2D" method="_on_Area2D_body_entered"]
